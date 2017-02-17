@@ -2,6 +2,9 @@
 #include <map>
 #include <iostream>
 #include <pthread.h>
+#include <fstream>
+#include <streambuf>
+#include <vector>
 
 pthread_mutex_t m_char = PTHREAD_MUTEX_INITIALIZER;
 
@@ -41,43 +44,58 @@ void* mostOccu(void* result)
 {
     Result* res = (Result*) result;
     std::string str = res->str;
-    for(int i = res->start; i <= res->stop; ++i){
+    for(int i = res->start; i < res->stop; ++i){
         while(str[i] == ' ' || str[i] == '\0' || str[i] == '\n')
             ++i;
         pthread_mutex_lock(&m_char);
         std::map<char, int>::iterator it = res->list.find(str[i]);
-        if (str[i] == 't'){
-            downOccus(res->list);
-        }
+        // if (str[i] == 't'){
+        //     downOccus(res->list);
+        // }
         if (it == res->list.end())
             res->list[str[i]] = 1;
         else
             res->list[str[i]] += 1;
         pthread_mutex_unlock(&m_char);
     }
+    return NULL;
 }
 
 int main(int argc, char** argv)
 {
-    if(argc == 2) {
-        std::string str = argv[1];
-        std::map<char, int> l;
-        int mid = str.size() / 2;
-        Result res_th1(str, l, 0, mid);
-        Result res_th2(str, l, mid + 1, str.size());
-        pthread_t th1;
-        pthread_t th2;
-        pthread_create(&th1, NULL, mostOccu, &res_th1);
-        pthread_create(&th2, NULL, mostOccu, &res_th2);
-        pthread_join(th1, NULL);
-        pthread_join(th2, NULL);
-        char ret = getMax(l);
-        std::cout << l[ret] << " : " << ret << "\n\n";
-        std::map<char, int>::iterator it = l.begin();
-        for(; it != l.end(); ++it) {
-            std::cout << it->first << " : " << it->second << "\n";
-        }
+    int num = atoi(argv[1]);
+    std::map<char, int> l;
+    std::ifstream file("text.txt");
+    std::string str;
+    std::vector<Result> argList;
+    std::vector<pthread_t> threadList;
+    for(int i = 0; i < num; ++i){
+        pthread_t temp;
+        threadList.push_back(temp);
     }
+    while(std::getline(file, str)) {
+        int gap =  str.size() / num;
+        int max = gap;
+        int min = 0;
+        for (int i = 0; i < num; ++i){
+            argList.push_back(Result(str, l, min,max));
+            min = max;
+            if (i == num - 2)
+                max = str.size() - 1;
+            else
+                max = max + gap;
+        }
+        for(int i = 0; i < num; ++i){
+            pthread_create(&threadList[i], NULL, mostOccu, &argList[i]);
+        }
+        pthread_join(threadList.back(), NULL);
+    }
+        char ret = getMax(l);
+        std::cout << "C++ \n"<< l[ret] << " : " << ret << "\n\n";
+        std::map<char, int>::iterator it = l.begin();
+        // for(; it != l.end(); ++it) {
+        //     std::cout << it->first << " : " << it->second << "\n";
+        // }
     return 0;
 }
 
