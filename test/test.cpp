@@ -6,39 +6,57 @@
 #include <streambuf>
 #include <vector>
 
-pthread_mutex_t m_char = PTHREAD_MUTEX_INITIALIZER;
+struct Value
+{
+    Value():occu(0){mutex = PTHREAD_MUTEX_INITIALIZER;}
+    void down(){
+        pthread_mutex_lock(&mutex);
+        occu -= 1;
+        pthread_mutex_unlock(&mutex);
+    }
+    void up(){
+        pthread_mutex_lock(&mutex);
+        occu += 1;
+        pthread_mutex_unlock(&mutex);
+    }
+
+    int occu;
+    pthread_mutex_t mutex;
+};
+
 
 struct Result
 {
-    Result(std::string s, std::map<char, int>&l, int b, int e)
+    Result(std::string s, std::map<char, Value>&l, int b, int e)
         :str(s),
          list(l),
          start(b),
          stop(e){};
     std::string str;
-    std::map<char, int>& list;
+    std::map<char, Value>& list;
     char ret;
     int start;
     int stop;
 };
 
-char getMax(std::map<char, int>& list){
-    std::map<char, int>::iterator it = list.begin();
+
+char getMax(std::map<char, Value>& list){
+    std::map<char, Value>::iterator it = list.begin();
     char max = it->first;
     for(; it != list.end(); ++it) {
-        if (list[max] < it->second)
+        if (list[max].occu < (it->second).occu)
             max = it->first;
     }
     return max;
 };
 
-void downOccus(std::map<char, int>& list)
-{
-    std::map<char, int>::iterator it = list.begin();
-    for(; it != list.end(); ++it){
-        it->second -= 1;
-    }
-}
+// void downOccus(std::map<char, int>& list)
+// {
+//     std::map<char, int>::iterator it = list.begin();
+//     for(; it != list.end(); ++it){
+//         it->second -= 1;
+//     }
+// }
 
 void* mostOccu(void* result)
 {
@@ -47,24 +65,28 @@ void* mostOccu(void* result)
     for(int i = res->start; i < res->stop; ++i){
         while(str[i] == ' ' || str[i] == '\0' || str[i] == '\n')
             ++i;
-        pthread_mutex_lock(&m_char);
-        std::map<char, int>::iterator it = res->list.find(str[i]);
         // if (str[i] == 't'){
         //     downOccus(res->list);
         // }
-        if (it == res->list.end())
-            res->list[str[i]] = 1;
-        else
-            res->list[str[i]] += 1;
-        pthread_mutex_unlock(&m_char);
+        (res->list[str[i]]).up();
     }
     return NULL;
 }
 
+void abcMap(std::map<char, Value>& abc)
+{
+    for(int i = 'a'; i <= 'z'; ++i){
+        abc[i] = Value();
+    }
+}
+
 int main(int argc, char** argv)
 {
+    if (argc == 1)
+        exit(0);
     int num = atoi(argv[1]);
-    std::map<char, int> l;
+    std::map<char, Value> l;
+    abcMap(l);
     std::ifstream file("text.txt");
     std::string str;
     std::vector<Result> argList;
@@ -91,8 +113,8 @@ int main(int argc, char** argv)
         pthread_join(threadList.back(), NULL);
     }
         char ret = getMax(l);
-        std::cout << "C++ \n"<< l[ret] << " : " << ret << "\n\n";
-        std::map<char, int>::iterator it = l.begin();
+        std::cout << "C++ \n"<< l[ret].occu << " : " << ret << "\n\n";
+        std::map<char, Value>::iterator it = l.begin();
         // for(; it != l.end(); ++it) {
         //     std::cout << it->first << " : " << it->second << "\n";
         // }
